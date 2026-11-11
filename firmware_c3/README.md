@@ -83,6 +83,8 @@ build_flags =
 | **异步接收** | 线程安全缓冲 | FreeRTOS 异步后台收包，前台边收边打，长文本不丢字 |
 | **完成回执** | `{DONE}` 或 `{DONE:<id>}` | 打完后经 BLE TX 连发 2 次回执（如 `DONE:123`），抗丢包 |
 | **延时等待** | `{DELAY:ms}` | 毫秒级停顿等待（如 `{DELAY:200}`） |
+| **鼠标点击与控制** | `{CLICK}` / `{RCLICK}` / `{MCLICK}` / `{DBLCLICK}` / `{LDOWN}` / `{LUP}` / `{SCROLL:n}` / `{MOVE:dx,dy}` | 支持左键/右键/中键单击、双击、按住拖拽、滚轮滚动与大跨度平滑移动 |
+| **鼠标角点归零与定位点击** | `{CORNER:TL}` / `{CORNER:TR}` / `{RESET_MOUSE}` / `{MOVE_TO:x,y}` / `{CLICK_AT:x,y}` / `{CLICK_TR:dx,dy}` | 支持连续推边撞墙归零至角落，基于左上角/右上角基准移动并执行点击 |
 | **系统组合键** | `{CTRL+ALT+F4}` 等 | 自动识别 Ctrl/Alt/Shift/Win 修饰键并与主键组合发送 |
 | **NumLock/Caps 状态** | `{NUM?}` | 手动查询 CH9329 实际 LED 状态并回显 |
 | **时序参数热调节** | `{CFG:key=val ...}` | 运行时内存即时生效，支持 Engine B 统一参数 |

@@ -20,7 +20,8 @@
  *   3. 优先读取 LittleFS /gbk_data.bin；若未上传则自动降级使用内置 GBK_DATA_BUILTIN，即刷即用。
  *   4. 时序参数热调节 ({CFG:...})、NVS 掉电保存 ({CFGSAVE})、回显 ({CFG?})，对齐 Engine B 统一时序。
  *   5. 支持 {DELAY:ms} 毫秒级停顿标签，完美适配 HIS 界面焦点切换与响应等待。
- *   6. 支持任意单键与组合键自动解析执行 (如 {TAB}, {ENTER}, {F1}-{F12}, {CTRL+C}, {ALT+F4}, {SHIFT+INSERT})。
+ *   6. 支持鼠标点击与动作执行 ({CLICK}, {RCLICK}, {MCLICK}, {DBLCLICK}, {LDOWN}, {LUP}, {SCROLL:n}, {MOVE:x,y})。
+ *   7. 支持任意单键与组合键自动解析执行 (如 {TAB}, {ENTER}, {F1}-{F12}, {CTRL+C}, {ALT+F4}, {SHIFT+INSERT})。
  *   7. NumLock/CapsLock 闭环自愈：打首个汉字前自动查询 CH9329 CMD_GET_INFO 并自动修复。
  *   8. 消息完成回执：{DONE} 或 {DONE:<id>} 打完后连续回执 2 次抗丢包。
  *   9. 扫码扩展：
@@ -404,6 +405,81 @@ static void send_ch9329_frame(uint8_t mod, uint8_t k1 = 0, uint8_t k2 = 0, uint8
     Serial1.write(frame, 14);
 }
 
+// ------------------------------------------------------------------------------
+// CH9329 鼠标控制 (CMD 0x05 相对鼠标协议)
+// ------------------------------------------------------------------------------
+#define MOUSE_BTN_NONE   0x00
+#define MOUSE_BTN_LEFT   0x01
+#define MOUSE_BTN_RIGHT  0x02
+#define MOUSE_BTN_MIDDLE 0x04
+
+static uint8_t current_mouse_btn = MOUSE_BTN_NONE;
+
+static void send_ch9329_mouse(uint8_t btn, int8_t x = 0, int8_t y = 0, int8_t wheel = 0) {
+    uint8_t frame[11] = {
+        0x57, 0xAB, 0x00, 0x05, 0x05, 0x01, btn, (uint8_t)x, (uint8_t)y, (uint8_t)wheel, 0x00
+    };
+    uint32_t sum = 0;
+    for (int i = 0; i < 10; i++) sum += frame[i];
+    frame[10] = (uint8_t)(sum & 0xFF);
+    Serial1.write(frame, 11);
+    current_mouse_btn = btn;
+}
+
+static bool tap_mouse_button(uint8_t btn) {
+    if (seen_gen != abort_gen) return false;
+    send_ch9329_mouse(btn, 0, 0, 0);
+    if (!delay_abortable(timing.tap_press_ms)) {
+        send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+        return false;
+    }
+    send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+    return delay_abortable(timing.tap_release_ms);
+}
+
+static bool tap_mouse_double_click(uint8_t btn) {
+    if (!tap_mouse_button(btn)) return false;
+    if (!delay_abortable(60.0f)) return false;
+    return tap_mouse_button(btn);
+}
+
+static bool move_mouse_rel(int8_t x, int8_t y, int8_t wheel = 0) {
+    if (seen_gen != abort_gen) return false;
+    send_ch9329_mouse(current_mouse_btn, x, y, wheel);
+    return delay_abortable(timing.tap_release_ms);
+}
+
+// 移至角落归零：通过连续大位移“撞墙”使光标归位至指定角落
+// corner: 0=Top-Left(左上角 0,0), 1=Top-Right(右上角), 2=Bottom-Left(左下角), 3=Bottom-Right(右下角)
+static bool reset_mouse_to_corner(uint8_t corner = 0) {
+    int8_t step_x = (corner == 1 || corner == 3) ? 120 : -120;
+    int8_t step_y = (corner == 2 || corner == 3) ? 120 : -120;
+
+    for (int k = 0; k < 35; k++) {
+        if (seen_gen != abort_gen) return false;
+        send_ch9329_mouse(current_mouse_btn, step_x, step_y, 0);
+        if (!delay_abortable(4.0f)) return false;
+    }
+    return delay_abortable(15.0f);
+}
+
+// 支持任意大距离平滑分步相对移动 (不受 int8_t -127~127 限制)
+static bool move_mouse_large(int dx, int dy) {
+    if (seen_gen != abort_gen) return false;
+    while (dx != 0 || dy != 0) {
+        if (seen_gen != abort_gen) return false;
+        int step_x = constrain(dx, -100, 100);
+        int step_y = constrain(dy, -100, 100);
+        dx -= step_x;
+        dy -= step_y;
+        send_ch9329_mouse(current_mouse_btn, (int8_t)step_x, (int8_t)step_y, 0);
+        if (dx != 0 || dy != 0) {
+            if (!delay_abortable(4.0f)) return false;
+        }
+    }
+    return delay_abortable(timing.tap_release_ms);
+}
+
 static void ch_drain() {
     while (Serial1.available()) Serial1.read();
 }
@@ -692,7 +768,12 @@ static bool try_execute_key_or_combo(const String &token) {
     if (raw.isEmpty()) return false;
 
     // 排除特定命令
-    if (raw.startsWith("DONE") || raw.startsWith("CFG") || raw.startsWith("NAME") || raw.startsWith("DELAY")) {
+    if (raw.startsWith("DONE") || raw.startsWith("CFG") || raw.startsWith("NAME") || raw.startsWith("DELAY") ||
+        raw.startsWith("CLICK") || raw.startsWith("LCLICK") || raw.startsWith("RCLICK") || raw.startsWith("MCLICK") ||
+        raw.startsWith("DBLCLICK") || raw.startsWith("DOUBLE") || raw.startsWith("SCROLL") || raw.startsWith("WHEEL") ||
+        raw.startsWith("MOVE") || raw.startsWith("MOUSE") || raw.startsWith("LDOWN") || raw.startsWith("LUP") ||
+        raw.startsWith("RDOWN") || raw.startsWith("RUP") || raw.startsWith("MDOWN") || raw.startsWith("MUP") ||
+        raw.startsWith("CORNER") || raw.startsWith("RESET_MOUSE")) {
         return false;
     }
 
@@ -735,6 +816,177 @@ static bool try_execute_key_or_combo(const String &token) {
         tap_key(mod, key);
         return true;
     }
+    return false;
+}
+
+// 解析并执行鼠标动作标签：点击、双击、长按、释放、滚轮、位移
+static bool try_execute_mouse_action(const String &token) {
+    if (!token.startsWith("{") || !token.endsWith("}")) return false;
+    String raw = token.substring(1, token.length() - 1);
+    raw.trim();
+    String upper = raw;
+    upper.toUpperCase();
+    if (upper.isEmpty()) return false;
+
+    // 1. 左键单击
+    if (upper == "CLICK" || upper == "LCLICK" || upper == "LEFT_CLICK" || upper == "MOUSE_LEFT") {
+        return tap_mouse_button(MOUSE_BTN_LEFT);
+    }
+    // 2. 右键单击
+    if (upper == "RCLICK" || upper == "RIGHT_CLICK" || upper == "MOUSE_RIGHT") {
+        return tap_mouse_button(MOUSE_BTN_RIGHT);
+    }
+    // 3. 中键单击
+    if (upper == "MCLICK" || upper == "MID_CLICK" || upper == "MIDDLE_CLICK" || upper == "MOUSE_MIDDLE") {
+        return tap_mouse_button(MOUSE_BTN_MIDDLE);
+    }
+
+    // 4. 左键双击
+    if (upper == "DBLCLICK" || upper == "DOUBLE_CLICK" || upper == "DOUBLECLICK" || upper == "LDBLCLICK") {
+        return tap_mouse_double_click(MOUSE_BTN_LEFT);
+    }
+
+    // 5. 按下（拖拽或长按）
+    if (upper == "LDOWN" || upper == "LEFT_DOWN" || upper == "CLICK_DOWN") {
+        current_mouse_btn |= MOUSE_BTN_LEFT;
+        send_ch9329_mouse(current_mouse_btn, 0, 0, 0);
+        return delay_abortable(timing.tap_press_ms);
+    }
+    if (upper == "RDOWN" || upper == "RIGHT_DOWN") {
+        current_mouse_btn |= MOUSE_BTN_RIGHT;
+        send_ch9329_mouse(current_mouse_btn, 0, 0, 0);
+        return delay_abortable(timing.tap_press_ms);
+    }
+    if (upper == "MDOWN" || upper == "MID_DOWN" || upper == "MIDDLE_DOWN") {
+        current_mouse_btn |= MOUSE_BTN_MIDDLE;
+        send_ch9329_mouse(current_mouse_btn, 0, 0, 0);
+        return delay_abortable(timing.tap_press_ms);
+    }
+
+    // 6. 释放（拖拽结束或松开）
+    if (upper == "LUP" || upper == "LEFT_UP" || upper == "CLICK_UP") {
+        current_mouse_btn &= ~MOUSE_BTN_LEFT;
+        send_ch9329_mouse(current_mouse_btn, 0, 0, 0);
+        return delay_abortable(timing.tap_release_ms);
+    }
+    if (upper == "RUP" || upper == "RIGHT_UP") {
+        current_mouse_btn &= ~MOUSE_BTN_RIGHT;
+        send_ch9329_mouse(current_mouse_btn, 0, 0, 0);
+        return delay_abortable(timing.tap_release_ms);
+    }
+    if (upper == "MUP" || upper == "MID_UP" || upper == "MIDDLE_UP") {
+        current_mouse_btn &= ~MOUSE_BTN_MIDDLE;
+        send_ch9329_mouse(current_mouse_btn, 0, 0, 0);
+        return delay_abortable(timing.tap_release_ms);
+    }
+    if (upper == "MOUSE_UP") {
+        current_mouse_btn = MOUSE_BTN_NONE;
+        send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+        return delay_abortable(timing.tap_release_ms);
+    }
+
+    // 7. 滚轮 {SCROLL:n} 或 {WHEEL:n} (正数向上滚，负数向下滚)
+    if (upper.startsWith("SCROLL:") || upper.startsWith("WHEEL:")) {
+        int colon = upper.indexOf(':');
+        int val = upper.substring(colon + 1).toInt();
+        val = constrain(val, -127, 127);
+        if (val != 0) {
+            move_mouse_rel(0, 0, (int8_t)val);
+        }
+        return true;
+    }
+
+    // 8. 角落归零 {RESET_MOUSE} / {CORNER:TL} / {CORNER:TR} / {CORNER:BL} / {CORNER:BR}
+    if (upper == "RESET_MOUSE" || upper == "CORNER:TL" || upper == "CORNER:TOP_LEFT" || upper == "CORNER_TL") {
+        return reset_mouse_to_corner(0); // 左上角 (0, 0)
+    }
+    if (upper == "CORNER:TR" || upper == "CORNER:TOP_RIGHT" || upper == "CORNER_TR") {
+        return reset_mouse_to_corner(1); // 右上角
+    }
+    if (upper == "CORNER:BL" || upper == "CORNER:BOTTOM_LEFT" || upper == "CORNER_BL") {
+        return reset_mouse_to_corner(2); // 左下角
+    }
+    if (upper == "CORNER:BR" || upper == "CORNER:BOTTOM_RIGHT" || upper == "CORNER_BR") {
+        return reset_mouse_to_corner(3); // 右下角
+    }
+
+    // 9. 相对平滑移动 {MOVE:dx,dy} 或 {MOUSE_MOVE:dx,dy} (支持大跨度位移如 500, 1200)
+    if (upper.startsWith("MOVE:") || upper.startsWith("MOUSE_MOVE:")) {
+        int colon = upper.indexOf(':');
+        String params = upper.substring(colon + 1);
+        int comma = params.indexOf(',');
+        if (comma != -1) {
+            int dx = params.substring(0, comma).toInt();
+            int dy = params.substring(comma + 1).toInt();
+            return move_mouse_large(dx, dy);
+        }
+    }
+
+    // 10. 绝对移动定位 {MOVE_TO:x,y} (左上角归零后移动至 x, y)
+    if (upper.startsWith("MOVE_TO:")) {
+        int colon = upper.indexOf(':');
+        String params = upper.substring(colon + 1);
+        int comma = params.indexOf(',');
+        if (comma != -1) {
+            int x = params.substring(0, comma).toInt();
+            int y = params.substring(comma + 1).toInt();
+            if (!reset_mouse_to_corner(0)) return false;
+            return move_mouse_large(x, y);
+        }
+    }
+
+    // 11. 指定绝对坐标点击 {CLICK_AT:x,y} / {RCLICK_AT:x,y} / {DBLCLICK_AT:x,y} (左上角基准)
+    if (upper.startsWith("CLICK_AT:")) {
+        int colon = upper.indexOf(':');
+        String params = upper.substring(colon + 1);
+        int comma = params.indexOf(',');
+        if (comma != -1) {
+            int x = params.substring(0, comma).toInt();
+            int y = params.substring(comma + 1).toInt();
+            if (!reset_mouse_to_corner(0)) return false;
+            if (!move_mouse_large(x, y)) return false;
+            return tap_mouse_button(MOUSE_BTN_LEFT);
+        }
+    }
+    if (upper.startsWith("RCLICK_AT:")) {
+        int colon = upper.indexOf(':');
+        String params = upper.substring(colon + 1);
+        int comma = params.indexOf(',');
+        if (comma != -1) {
+            int x = params.substring(0, comma).toInt();
+            int y = params.substring(comma + 1).toInt();
+            if (!reset_mouse_to_corner(0)) return false;
+            if (!move_mouse_large(x, y)) return false;
+            return tap_mouse_button(MOUSE_BTN_RIGHT);
+        }
+    }
+    if (upper.startsWith("DBLCLICK_AT:")) {
+        int colon = upper.indexOf(':');
+        String params = upper.substring(colon + 1);
+        int comma = params.indexOf(',');
+        if (comma != -1) {
+            int x = params.substring(0, comma).toInt();
+            int y = params.substring(comma + 1).toInt();
+            if (!reset_mouse_to_corner(0)) return false;
+            if (!move_mouse_large(x, y)) return false;
+            return tap_mouse_double_click(MOUSE_BTN_LEFT);
+        }
+    }
+
+    // 12. 右上角基准偏移点击 {CLICK_TR:dx,dy} (如用户习惯把光标停在右上角，dx通常为负数向左移)
+    if (upper.startsWith("CLICK_TR:")) {
+        int colon = upper.indexOf(':');
+        String params = upper.substring(colon + 1);
+        int comma = params.indexOf(',');
+        if (comma != -1) {
+            int dx = params.substring(0, comma).toInt();
+            int dy = params.substring(comma + 1).toInt();
+            if (!reset_mouse_to_corner(1)) return false;
+            if (!move_mouse_large(dx, dy)) return false;
+            return tap_mouse_button(MOUSE_BTN_LEFT);
+        }
+    }
+
     return false;
 }
 
@@ -1299,6 +1551,8 @@ static void process_typing_stream() {
         seen_gen = abort_gen;
         pending = "";
         send_ch9329_frame(MOD_NONE);
+        send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+        current_mouse_btn = MOUSE_BTN_NONE;
         send_back("STOPPED");
         return; // 注意：绝对不碰 rx_stream_buf！后续新文字将完整保留并在下一轮 loop 处理
     }
@@ -1313,6 +1567,8 @@ static void process_typing_stream() {
             seen_gen = abort_gen;
             pending = "";
             send_ch9329_frame(MOD_NONE);
+            send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+            current_mouse_btn = MOUSE_BTN_NONE;
             send_back("STOPPED");
             return;
         }
@@ -1342,6 +1598,8 @@ static void process_typing_stream() {
                 seen_gen = ++abort_gen;
                 pending = "";
                 send_ch9329_frame(MOD_NONE);
+                send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+                current_mouse_btn = MOUSE_BTN_NONE;
                 send_back("STOPPED");
                 return;
             }
@@ -1382,6 +1640,8 @@ static void process_typing_stream() {
                         seen_gen = abort_gen;
                         pending = "";
                         send_ch9329_frame(MOD_NONE);
+                        send_ch9329_mouse(MOUSE_BTN_NONE, 0, 0, 0);
+                        current_mouse_btn = MOUSE_BTN_NONE;
                         send_back("STOPPED");
                         return;
                     }
@@ -1390,7 +1650,13 @@ static void process_typing_stream() {
                 continue;
             }
 
-            // 4. 单键或组合键敲击 {TAB}, {ENTER}, {CTRL+C}, {ALT+F4}, {SHIFT+INSERT} 等
+            // 4. 鼠标动作标签 (左键/右键/中键/双击/长按/释放/滚轮/位移)
+            if (try_execute_mouse_action(token)) {
+                i = end_idx + 1;
+                continue;
+            }
+
+            // 5. 单键或组合键敲击 {TAB}, {ENTER}, {CTRL+C}, {ALT+F4}, {SHIFT+INSERT} 等
             if (try_execute_key_or_combo(token)) {
                 i = end_idx + 1;
 

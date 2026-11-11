@@ -91,6 +91,8 @@ build_flags =
 | **急停安全** | `{STOP}` 或 `{ABORT}` | 即刻原子清空输入队列并释放物理按键，返回 `STOPPED` |
 | **完成回执** | `{DONE}` 或 `{DONE:<id>}` | 打完后经 BLE TX 连发 2 次回执（如 `DONE:123`），抗丢包 |
 | **延时等待** | `{DELAY:ms}` | 毫秒级停顿等待（如 `{DELAY:200}`） |
+| **鼠标点击与控制** | `{CLICK}` / `{RCLICK}` / `{MCLICK}` / `{DBLCLICK}` / `{LDOWN}` / `{LUP}` / `{SCROLL:n}` / `{MOVE:dx,dy}` | 原生 USB HID 支持左键/右键/中键单击、双击、按住拖拽、滚轮滚动与大跨度平滑移动 |
+| **鼠标角点归零与定位点击** | `{CORNER:TL}` / `{CORNER:TR}` / `{RESET_MOUSE}` / `{MOVE_TO:x,y}` / `{CLICK_AT:x,y}` / `{CLICK_TR:dx,dy}` | 原生 USB HID 支持角点撞墙归位，基于左上角/右上角基准移动并执行点击 |
 | **系统组合键** | `{CTRL+ALT+F4}` 等 | 自动识别 Ctrl/Alt/Shift/Win 修饰键并与主键组合发送 |
 | **NumLock/Caps 状态** | `{NUM?}` | 查询宿主机下发的当前 LED 状态并回显 |
 | **时序参数热调节** | `{CFG:key=val ...}` | 运行时内存即时生效，支持 Engine B 统一参数 |
