@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Build output
+build/
+.pio/
+release-assets/
+*.elf
+*.map
+
+# Secrets
+.gitee_token
+*.jks
