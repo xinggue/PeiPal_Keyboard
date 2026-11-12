@@ -14,17 +14,22 @@
 <br>
 <br>
 
-<a href="https://github.com/xinggue/PeiPal_Keyboard/releases">下载固件</a> ｜
+<a href="https://gitee.com/xinggue/PeiPal_Keyboard/releases">下载固件</a>（<a href="https://github.com/xinggue/PeiPal_Keyboard/releases">GitHub</a>） ｜
 <a href="#烧录">烧录</a> ｜
 <a href="#指令速查">指令速查</a> ｜
 <a href="#自行编译">自行编译</a> ｜
-<a href="https://github.com/xinggue/PeiPal_Keyboard/issues">问题反馈</a>
+<a href="https://gitee.com/xinggue/PeiPal_Keyboard/issues">问题反馈</a>（<a href="https://github.com/xinggue/PeiPal_Keyboard/issues">GitHub</a>）
+
+<br>
+<br>
+
+<span>同步发布于 GitHub / Gitee，国内访问建议使用 Gitee 镜像</span>
 
 </div>
 
 <br>
 
-[小培同学 PeiPal](https://github.com/xinggue/PeiPal_App) 的配套硬件。手机通过蓝牙把文本发给开发板，开发板以 USB 键盘 / 鼠标的身份向电脑逐字输入。目标电脑无需安装软件、无需联网，也不会出现 U 盘设备，内网电脑照常使用。
+[小培同学 PeiPal](https://gitee.com/xinggue/peipal_app)（[GitHub](https://github.com/xinggue/PeiPal_App)） 的配套硬件。手机通过蓝牙把文本发给开发板，开发板以 USB 键盘 / 鼠标的身份向电脑逐字输入。目标电脑无需安装软件、无需联网，也不会出现 U 盘设备，内网电脑照常使用。
 
 <br>
 
@@ -49,7 +54,7 @@
 
 ## 烧录
 
-下载 [Releases](https://github.com/xinggue/PeiPal_Keyboard/releases)（国内可用 [Gitee](https://gitee.com/xinggue/PeiPal_Keyboard/releases)）中的 `PeiPal-Keyboard-ESP32S3.zip`，解压后使用其中的 **`firmware_s3.ino.merged.bin`**。
+下载 [Releases](https://gitee.com/xinggue/PeiPal_Keyboard/releases)（海外/开发可走 [GitHub](https://github.com/xinggue/PeiPal_Keyboard/releases)）中的 `PeiPal-Keyboard-ESP32S3.zip`，解压后使用其中的 **`firmware_s3.ino.merged.bin`**。
 
 其余文件（`bootloader.bin`、`partitions.bin`、`.elf`、`.map`）烧录时用不到。
 
