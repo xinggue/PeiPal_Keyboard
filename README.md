@@ -36,8 +36,8 @@
 
 | 目录 | 芯片 | 输出方式 |
 |---|---|---|
-| [`firmware_s3`](./firmware_s3) | ESP32-S3 | 芯片自带 USB，直接作为键盘 / 鼠标，无需额外模块 |
-| [`firmware_c3`](./firmware_c3) | ESP32-C3 | 通过串口连接 CH9329 模块输出键盘 / 鼠标 |
+| [`firmware_s3`](./firmware_s3) | ESP32-S3 | 芯片自带 USB，直接作为键盘 / 鼠标，**无需接线、无需额外模块** |
+| [`firmware_c3`](./firmware_c3) | ESP32-C3 | 需外接 CH9329 模块输出键盘 / 鼠标，接线见 [`firmware_c3/README.md`](./firmware_c3/README.md) |
 
 推荐 **ESP32-S3**：只需一块开发板和一根 Type-C 线。
 
@@ -130,22 +130,6 @@ macOS / Linux 若找不到串口，可加 `--port /dev/cu.usbmodemXXXX`（macOS�
 
 <br>
 
-## 硬件连接（S3）
-
-| ESP32-S3 | 连接到 | 说明 |
-|---|---|---|
-| 板载 Type-C（USB） | 目标电脑 | 供电 + 模拟键盘 / 鼠标 |
-| GPIO 4 (RX) | 扫码枪 TX | 可选，二维码输入，波特率 115200 |
-| GND | 扫码枪 GND | 可选，共地 |
-
-C3 版本的接线见 [`firmware_c3/README.md`](./firmware_c3/README.md)。
-
-<br>
-
----
-
-<br>
-
 ## 指令速查
 
 蓝牙发送的文本中，普通字符直接输入，`{...}` 为指令。
@@ -176,16 +160,6 @@ C3 版本的接线见 [`firmware_c3/README.md`](./firmware_c3/README.md)。
 | 右上角基准点击 | `{CLICK_TR:dx,dy}` |
 
 坐标类指令先把光标推到屏幕角落，再做相对移动。系统的“提高指针精确度”（鼠标加速）会让移动距离与像素不成正比，使用前请关闭，并在目标电脑上实测校准。
-
-<br>
-
----
-
-<br>
-
-## 二维码输入
-
-扫码枪接到开发板后，扫描 App 生成的二维码即可输入，无需蓝牙配对。内容较长时 App 会拆成多张码（`<<SEQ:ID:M/N>>`），开发板支持乱序扫描、自动拼齐后输入，最多 32 张，30 秒超时。
 
 <br>
 
