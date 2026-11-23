@@ -110,7 +110,7 @@ macOS / Linux 若找不到串口，可加 `--port /dev/cu.usbmodemXXXX`（macOS�
 ### 烧录后检查
 
 - 电脑出现一个新的 USB 键盘设备。
-- 手机 App 搜索蓝牙，能看到 `ESP32S3 键盘_XXXX`（`XXXX` 为蓝牙 MAC 末 4 位，多台设备不会混淆）。
+- 手机 App 搜索蓝牙，能看到 `小培键盘_XXXXXX`（`XXXXXX` 为蓝牙 MAC 末 6 位，多台设备不会混淆）。
 - 可用串口工具以 `115200` 连接板载 USB 查看启动日志。
 
 <br>

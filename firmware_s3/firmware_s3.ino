@@ -124,15 +124,15 @@ static void clamp_timing(TimingConfig &t);
 #define MAX_QR_PARTS           32    // 支持最大分包数
 
 // BLE 默认设备前缀与动态名称
-#define BLE_DEFAULT_DEVICE_PREFIX "ESP32S3 键盘"
+#define BLE_DEFAULT_DEVICE_PREFIX "小培键盘"
 static String current_ble_name = "";
 
-// 生成基于芯片全球唯一 MAC 地址末 4 位的出厂名称，如 "ESP32S3 键盘_A8F2"
+// 生成基于芯片全球唯一 MAC 地址末 6 位的出厂名称，如 "小培键盘_A8F21C"
 static String get_default_ble_name() {
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_BT);
     char buf[32];
-    snprintf(buf, sizeof(buf), "%s_%02X%02X", BLE_DEFAULT_DEVICE_PREFIX, mac[4], mac[5]);
+    snprintf(buf, sizeof(buf), "%s_%02X%02X%02X", BLE_DEFAULT_DEVICE_PREFIX, mac[3], mac[4], mac[5]);
     return String(buf);
 }
 
