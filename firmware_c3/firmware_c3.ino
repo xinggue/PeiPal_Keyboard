@@ -140,23 +140,23 @@ static const uint8_t KEYPAD_NUMS[10] = {
 };
 
 // ==============================================================================
-// 延时参数默认值 (与 App「适中」方案严格对齐：核心 5 项全 3.0ms，普通/功能键 20.0ms)
+// 延时参数默认值 (与 App「较快」预设对齐：核心 5 项全 2.0ms，普通/功能键 20.0ms)
 // ==============================================================================
 static const TimingConfig DEFAULT_TIMING = {
     20.0f,  // tap_press_ms (功能按键按下)
     20.0f,  // tap_release_ms (功能按键后停顿)
     20.0f,  // shift_press_ms
     20.0f,  // shift_release_ms
-    3.0f,   // alt_hold_ms (Alt 前置按住)
-    3.0f,   // alt_digit_press (小键盘数字按下)
-    3.0f,   // alt_digit_release (数字之间间隔)
-    3.0f,   // alt_release_ms (Alt 尾持时长)
+    2.0f,   // alt_hold_ms (Alt 前置按住)
+    2.0f,   // alt_digit_press (小键盘数字按下)
+    2.0f,   // alt_digit_release (数字之间间隔)
+    2.0f,   // alt_release_ms (Alt 尾持时长)
     20.0f,  // enter_press_ms
     20.0f,  // enter_release_ms
     20.0f,  // tab_press_ms
     20.0f,  // tab_release_ms
     20.0f,  // ascii_gap_ms (普通字符间隔)
-    3.0f,   // cjk_gap_ms (汉字合成间隔)
+    2.0f,   // cjk_gap_ms (汉字合成间隔)
     1.0f,   // numlock_auto (1.0 = 开)
     1.0f,   // alt_ascii (1.0 = 默认全走 Alt 码彻底防中文输入法)
     1.0f,   // fence_auto (默认开启长文本防粘滞硬重置)
@@ -210,16 +210,18 @@ static const SpecialGbkEntry SPECIAL_GBK_MAP[] PROGMEM = {
     // 1. 常用拉丁扩展与度量 (U+00A0..02FF)
     { 0x00B0, 0xA1E3 }, // ° 度 (Alt+41443)
     { 0x00B1, 0xA1C0 }, // ± 正负号 (Alt+41408)
-    { 0x00B2, 0xA986 }, // ² 平方 (Alt+43398)
-    { 0x00B3, 0xA987 }, // ³ 立方 (Alt+43399)
     { 0x00B7, 0xA1A4 }, // · 间隔号 (Alt+41380)
     { 0x00D7, 0xA1C1 }, // × 乘号 (Alt+41409)
     { 0x00F7, 0xA1C2 }, // ÷ 除号 (Alt+41410)
     { 0x00A7, 0xA1EC }, // § 章节号
     { 0x00A4, 0xA1E8 }, // ¤ 货币符号
 
-    // 2. 常用符号与单位 (U+2000..21FF)
+    // 2. 常用符号、引号与单位 (U+2000..21FF)
     { 0x2014, 0xA1AA }, // — 破折号
+    { 0x2018, 0xA1AE }, // ‘ 左单引号
+    { 0x2019, 0xA1AF }, // ’ 右单引号
+    { 0x201C, 0xA1B0 }, // “ 左双引号
+    { 0x201D, 0xA1B1 }, // ” 右双引号
     { 0x2026, 0xA1AD }, // … 省略号
     { 0x2030, 0xA1EB }, // ‰ 千分号 (Alt+41451)
     { 0x2103, 0xA1E6 }, // ℃ 摄氏度 (Alt+41446)
@@ -241,9 +243,9 @@ static const SpecialGbkEntry SPECIAL_GBK_MAP[] PROGMEM = {
 
     // 4. 数学与逻辑运算符 (U+2200..22FF)
     { 0x221A, 0xA1CC }, // √ 对号/根号
-    { 0x2234, 0xA1D0 }, // ∴ 所以
-    { 0x2235, 0xA1D1 }, // ∵ 因为
-    { 0x2248, 0xA1E0 }, // ≈ 约等于
+    { 0x2234, 0xA1E0 }, // ∴ 所以
+    { 0x2235, 0xA1DF }, // ∵ 因为
+    { 0x2248, 0xA1D6 }, // ≈ 约等于
     { 0x2260, 0xA1D9 }, // ≠ 不等于
     { 0x2264, 0xA1DC }, // ≤ 小于等于 (Alt+41436)
     { 0x2265, 0xA1DD }, // ≥ 大于等于 (Alt+41437)
@@ -272,11 +274,15 @@ static const SpecialGbkEntry SPECIAL_GBK_MAP[] PROGMEM = {
     { 0x25A1, 0xA1F5 }, // □
     { 0x25B2, 0xA1F8 }, // ▲
     { 0x25B3, 0xA1F7 }, // △
+    { 0x25BC, 0xA88B }, // ▼
+    { 0x25BD, 0xA88C }, // ▽
     { 0x25CE, 0xA1F2 }, // ◎
     { 0x25CF, 0xA1F1 }, // ●
     { 0x25CB, 0xA1F0 }, // ○
     { 0x2605, 0xA1EF }, // ★
     { 0x2606, 0xA1EE }, // ☆
+    { 0x2640, 0xA1E2 }, // ♀
+    { 0x2642, 0xA1E1 }, // ♂
 
     // 7. 希腊字母 (GBK A6A1..A6B8 / A6C1..A6D8)。GBK 无大写 sigma 终形，跳过 U+03A2。
     { 0x0391, 0xA6A1 }, // Α
@@ -1525,6 +1531,18 @@ static void type_single_char(uint32_t codepoint) {
     if (gbk > 0) {
         send_alt_code(gbk);
         if (timing.cjk_gap_ms > 0.0f) delay_abortable(timing.cjk_gap_ms);
+        return;
+    }
+
+    // 4. 非 GBK 上标字符 ASCII 降级（避免输出乱码）
+    if (codepoint == 0x00B2) {
+        type_single_char('^');
+        type_single_char('2');
+        return;
+    }
+    if (codepoint == 0x00B3) {
+        type_single_char('^');
+        type_single_char('3');
         return;
     }
 
